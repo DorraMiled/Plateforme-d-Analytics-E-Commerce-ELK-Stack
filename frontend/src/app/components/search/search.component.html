@@ -1,0 +1,100 @@
+<div class="search-container">
+  <div class="page-header">
+    <h1>
+      <mat-icon>search</mat-icon>
+      Recherche de Logs
+    </h1>
+  </div>
+
+  <mat-card>
+    <mat-card-header>
+      <mat-card-title>Filtres de recherche</mat-card-title>
+      <mat-card-subtitle>Utilisez les filtres pour affiner votre recherche</mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <form [formGroup]="searchForm" (ngSubmit)="onSearch()">
+        <!-- Text Search -->
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Recherche en texte libre</mat-label>
+          <input matInput formControlName="query" placeholder="Ex: error, user login, connection failed...">
+          <mat-icon matPrefix>search</mat-icon>
+        </mat-form-field>
+
+        <div class="grid-container cols-3">
+          <!-- Log Level Filter -->
+          <mat-form-field appearance="outline">
+            <mat-label>Niveau de log</mat-label>
+            <mat-select formControlName="level">
+              <mat-option value="">Tous les niveaux</mat-option>
+              <mat-option *ngFor="let level of logLevels" [value]="level">
+                {{ level }}
+              </mat-option>
+            </mat-select>
+            <mat-icon matPrefix>filter_list</mat-icon>
+          </mat-form-field>
+
+          <!-- Service Filter -->
+          <mat-form-field appearance="outline">
+            <mat-label>Service / Application</mat-label>
+            <mat-select formControlName="service">
+              <mat-option value="">Tous les services</mat-option>
+              <mat-option *ngFor="let service of services" [value]="service">
+                {{ service }}
+              </mat-option>
+            </mat-select>
+            <mat-icon matPrefix>settings</mat-icon>
+          </mat-form-field>
+
+          <!-- Date Range -->
+          <div class="date-range">
+            <mat-form-field appearance="outline">
+              <mat-label>Date de début</mat-label>
+              <input matInput [matDatepicker]="startPicker" formControlName="startDate">
+              <mat-datepicker-toggle matSuffix [for]="startPicker"></mat-datepicker-toggle>
+              <mat-datepicker #startPicker></mat-datepicker>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Date de fin</mat-label>
+              <input matInput [matDatepicker]="endPicker" formControlName="endDate">
+              <mat-datepicker-toggle matSuffix [for]="endPicker"></mat-datepicker-toggle>
+              <mat-datepicker #endPicker></mat-datepicker>
+            </mat-form-field>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="search-actions">
+          <button mat-raised-button color="primary" type="submit" [disabled]="searching">
+            <mat-icon>search</mat-icon>
+            {{ searching ? 'Recherche...' : 'Rechercher' }}
+          </button>
+          <button mat-raised-button type="button" (click)="onReset()">
+            <mat-icon>clear</mat-icon>
+            Réinitialiser
+          </button>
+        </div>
+      </form>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Recent Searches -->
+  <mat-card *ngIf="recentSearches.length > 0" class="mt-20">
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>history</mat-icon>
+        Recherches récentes
+      </mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <mat-chip-listbox>
+        <mat-chip *ngFor="let search of recentSearches" 
+                  (click)="applyRecentSearch(search)"
+                  [removable]="true">
+          {{ search?.query || 'Recherche sans texte' }}
+          <mat-icon matChipRemove>cancel</mat-icon>
+        </mat-chip>
+      </mat-chip-listbox>
+    </mat-card-content>
+  </mat-card>
+</div>

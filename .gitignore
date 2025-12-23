@@ -1,0 +1,60 @@
+# Node modules
+node_modules/
+
+# Angular cache
+.angular/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Build outputs
+dist/
+build/
+*.egg-info/
+
+# Environment variables
+.env
+
+# Database
+*.db
+*.sqlite
+
+# Uploads
+uploads/
+*.csv
+*.json
+
+# Docker volumes
+data/
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Temporary files
+*.tmp
+*.temp

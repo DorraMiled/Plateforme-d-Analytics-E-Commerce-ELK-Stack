@@ -1,0 +1,98 @@
+<div class="results-container">
+  <div class="page-header">
+    <h1>
+      <mat-icon>view_list</mat-icon>
+      Résultats de Recherche
+    </h1>
+    <div class="header-actions">
+      <button mat-raised-button color="accent" (click)="exportToCSV()" [disabled]="loading || exporting || totalResults === 0">
+        <mat-icon>download</mat-icon>
+        {{ exporting ? 'Export...' : 'Export CSV' }}
+      </button>
+    </div>
+  </div>
+
+  <!-- Results Info -->
+  <mat-card class="info-card">
+    <span class="result-count">
+      <strong>{{ totalResults | number }}</strong> résultat(s) trouvé(s)
+    </span>
+  </mat-card>
+
+  <!-- Loading State -->
+  <div *ngIf="loading" class="loading-container">
+    <mat-spinner></mat-spinner>
+    <p>Chargement des résultats...</p>
+  </div>
+
+  <!-- Results Table -->
+  <mat-card *ngIf="!loading">
+    <mat-card-content>
+      <div class="table-container">
+        <table mat-table [dataSource]="dataSource" matSort class="full-width">
+          <!-- Timestamp Column -->
+          <ng-container matColumnDef="timestamp">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Date/Heure</th>
+            <td mat-cell *matCellDef="let log">
+              {{ log.timestamp | date:'dd/MM/yyyy HH:mm:ss' }}
+            </td>
+          </ng-container>
+
+          <!-- Level Column -->
+          <ng-container matColumnDef="level">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Niveau</th>
+            <td mat-cell *matCellDef="let log">
+              <span [class]="getLevelClass(log.level)">
+                {{ log.level }}
+              </span>
+            </td>
+          </ng-container>
+
+          <!-- Service Column -->
+          <ng-container matColumnDef="service">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Service</th>
+            <td mat-cell *matCellDef="let log">{{ log.service }}</td>
+          </ng-container>
+
+          <!-- Message Column -->
+          <ng-container matColumnDef="message">
+            <th mat-header-cell *matHeaderCellDef>Message</th>
+            <td mat-cell *matCellDef="let log" class="message-cell">
+              {{ log.message }}
+            </td>
+          </ng-container>
+
+          <!-- Actions Column -->
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef>Actions</th>
+            <td mat-cell *matCellDef="let log">
+              <button mat-icon-button color="primary" (click)="viewDetails(log)" matTooltip="Voir détails">
+                <mat-icon>visibility</mat-icon>
+              </button>
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+
+          <!-- No Data Row -->
+          <tr class="mat-row" *matNoDataRow>
+            <td class="mat-cell" [attr.colspan]="displayedColumns.length" style="text-align: center; padding: 40px;">
+              <mat-icon style="font-size: 48px; width: 48px; height: 48px; color: #999;">search_off</mat-icon>
+              <p style="margin-top: 16px; color: #999;">Aucun résultat trouvé</p>
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- Paginator -->
+      <mat-paginator
+        [length]="totalResults"
+        [pageSize]="50"
+        [pageSizeOptions]="[10, 25, 50, 100]"
+        (page)="onPageChange()"
+        showFirstLastButtons>
+      </mat-paginator>
+    </mat-card-content>
+  </mat-card>
+</div>

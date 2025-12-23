@@ -1,0 +1,2 @@
+- pipeline.id: logs-ingestion
+  path.config: "/usr/share/logstash/pipeline/logs-pipeline.conf"
