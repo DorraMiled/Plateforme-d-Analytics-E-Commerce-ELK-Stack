@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory, make_response
 from flask_cors import CORS
 from pymongo import MongoClient
 import redis
@@ -6,6 +6,7 @@ from elasticsearch import Elasticsearch
 import os
 import json
 import csv
+import io
 from datetime import datetime
 from werkzeug.utils import secure_filename
 import pandas as pd
@@ -24,7 +25,10 @@ MONGODB_URI = os.getenv('MONGODB_URI', 'mongodb://admin:admin123@localhost:27017
 REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
 REDIS_PORT = int(os.getenv('REDIS_PORT', 6379))
 ELASTICSEARCH_HOST = os.getenv('ELASTICSEARCH_HOST', 'http://localhost:9200')
-UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', '/app/uploads')
+
+# Upload folder - use local path by default, Docker will override via env var
+default_upload_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
+UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', default_upload_folder)
 ALLOWED_EXTENSIONS = {'csv', 'json'}
 
 # Create upload folder if it doesn't exist
@@ -340,17 +344,40 @@ def search():
         
         result = es_client.search(index='ecommerce-logs-*', body=search_body)
         
-        hits = [
-            {
-                "_id": hit['_id'],
-                "timestamp": hit['_source'].get('@timestamp', ''),
-                "level": hit['_source'].get('Level', ''),
-                "service": hit['_source'].get('Service', ''),
-                "message": hit['_source'].get('Message', ''),
-                "user": hit['_source'].get('User', '')
-            }
-            for hit in result['hits']['hits']
-        ]
+        hits = []
+        for hit in result['hits']['hits']:
+            source = hit['_source']
+            # Handle different document types
+            if 'Level' in source:
+                # Standard log format
+                hits.append({
+                    "_id": hit['_id'],
+                    "timestamp": source.get('@timestamp', ''),
+                    "level": source.get('Level', ''),
+                    "service": source.get('Service', ''),
+                    "message": source.get('Message', ''),
+                    "user": source.get('User', '')
+                })
+            elif 'event' in source:
+                # E-commerce event format
+                hits.append({
+                    "_id": hit['_id'],
+                    "timestamp": source.get('@timestamp', ''),
+                    "level": "INFO",
+                    "service": source.get('event', 'event'),
+                    "message": f"{source.get('event', '')} - User: {source.get('user', '')} - Page: {source.get('page', '')}",
+                    "user": source.get('user', '')
+                })
+            else:
+                # Generic format
+                hits.append({
+                    "_id": hit['_id'],
+                    "timestamp": source.get('@timestamp', ''),
+                    "level": source.get('level', source.get('severity', 'INFO')),
+                    "service": source.get('service', source.get('source', 'unknown')),
+                    "message": source.get('message', source.get('msg', str(source))),
+                    "user": source.get('user', source.get('User', ''))
+                })
         
         return jsonify({
             'total': result['hits']['total']['value'],
@@ -358,6 +385,95 @@ def search():
             'took': result['took']
         })
     
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/export/csv', methods=['GET'])
+def export_to_csv():
+    """Export search results to CSV file"""
+    if es_client is None:
+        return jsonify({'error': 'Elasticsearch not connected'}), 500
+    
+    try:
+        # Get filters from query parameters
+        query = request.args.get('q', '')
+        level = request.args.get('level', '')
+        service = request.args.get('service', '')
+        start_date = request.args.get('start_date', '')
+        end_date = request.args.get('end_date', '')
+        
+        # Build Elasticsearch query (same as search endpoint)
+        must = []
+        if query:
+            must.append({"query_string": {"query": f"*{query}*", "fields": ["*"]}})
+        if level:
+            must.append({"match": {"Level": level}})
+        if service:
+            must.append({"match": {"Service": service}})
+        if start_date or end_date:
+            date_range = {}
+            if start_date:
+                date_range["gte"] = start_date
+            if end_date:
+                date_range["lte"] = end_date
+            must.append({"range": {"@timestamp": date_range}})
+        
+        search_body = {
+            "query": {"bool": {"must": must}} if must else {"match_all": {}},
+            "size": 10000,  # Export up to 10000 records
+            "sort": [{"@timestamp": {"order": "desc"}}]
+        }
+        
+        result = es_client.search(index='ecommerce-logs-*', body=search_body)
+        
+        # Create CSV in memory
+        output = io.StringIO()
+        csv_writer = csv.writer(output)
+        
+        # Write header
+        csv_writer.writerow(['Timestamp', 'Level', 'Service', 'Message', 'User'])
+        
+        # Write data rows
+        for hit in result['hits']['hits']:
+            source = hit['_source']
+            
+            # Handle different document types (same logic as search)
+            if 'Level' in source:
+                row = [
+                    source.get('@timestamp', ''),
+                    source.get('Level', ''),
+                    source.get('Service', ''),
+                    source.get('Message', ''),
+                    source.get('User', '')
+                ]
+            elif 'event' in source:
+                row = [
+                    source.get('@timestamp', ''),
+                    'INFO',
+                    source.get('event', 'event'),
+                    f"{source.get('event', '')} - User: {source.get('user', '')} - Page: {source.get('page', '')}",
+                    source.get('user', '')
+                ]
+            else:
+                row = [
+                    source.get('@timestamp', ''),
+                    source.get('level', source.get('severity', 'INFO')),
+                    source.get('service', source.get('source', 'unknown')),
+                    source.get('message', source.get('msg', str(source))),
+                    source.get('user', source.get('User', ''))
+                ]
+            
+            csv_writer.writerow(row)
+        
+        # Prepare response
+        output.seek(0)
+        response = make_response(output.getvalue())
+        response.headers['Content-Type'] = 'text/csv'
+        response.headers['Content-Disposition'] = f'attachment; filename=logs_export_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+        
+        return response
+        
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -515,11 +631,17 @@ def list_files():
     """List all uploaded files"""
     try:
         files = []
+        upload_folder = app.config['UPLOAD_FOLDER']
+        print(f"[DEBUG] Checking upload folder: {upload_folder}")
+        print(f"[DEBUG] Folder exists: {os.path.exists(upload_folder)}")
         
         # Get files from upload folder
-        if os.path.exists(app.config['UPLOAD_FOLDER']):
-            for filename in os.listdir(app.config['UPLOAD_FOLDER']):
-                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        if os.path.exists(upload_folder):
+            file_list = os.listdir(upload_folder)
+            print(f"[DEBUG] Found {len(file_list)} files: {file_list[:3]}")
+            
+            for filename in file_list:
+                filepath = os.path.join(upload_folder, filename)
                 
                 # Try to get metadata from Redis
                 file_info = None
@@ -533,14 +655,18 @@ def list_files():
                     file_info = {
                         'filename': filename,
                         'size': os.path.getsize(filepath),
-                        'modified': datetime.fromtimestamp(os.path.getmtime(filepath)).isoformat(),
+                        'upload_time': datetime.fromtimestamp(os.path.getmtime(filepath)).isoformat(),
                         'type': filename.rsplit('.', 1)[1].lower() if '.' in filename else 'unknown'
                     }
+                else:
+                    # Ensure upload_time field exists for Redis cached files
+                    if 'uploaded_at' in file_info and 'upload_time' not in file_info:
+                        file_info['upload_time'] = file_info['uploaded_at']
                 
                 files.append(file_info)
         
         # Sort by upload time (most recent first)
-        files.sort(key=lambda x: x.get('uploaded_at', x.get('modified', '')), reverse=True)
+        files.sort(key=lambda x: x.get('upload_time', x.get('uploaded_at', x.get('modified', ''))), reverse=True)
         
         return jsonify({
             'count': len(files),
@@ -692,16 +818,38 @@ def get_dashboard():
             "sort": [{"@timestamp": {"order": "desc"}}]
         }
         recent_result = es_client.search(index='ecommerce-logs-*', body=recent_query)
-        recent_logs = [
-            {
-                "_id": hit['_id'],
-                "timestamp": hit['_source'].get('@timestamp', ''),
-                "level": hit['_source'].get('Level', ''),
-                "service": hit['_source'].get('Service', ''),
-                "message": hit['_source'].get('Message', '')
-            }
-            for hit in recent_result['hits']['hits']
-        ]
+        recent_logs = []
+        for hit in recent_result['hits']['hits']:
+            source = hit['_source']
+            # Handle different document types
+            if 'Level' in source:
+                # Standard log format
+                recent_logs.append({
+                    "_id": hit['_id'],
+                    "timestamp": source.get('@timestamp', ''),
+                    "level": source.get('Level', ''),
+                    "service": source.get('Service', ''),
+                    "message": source.get('Message', '')
+                })
+            elif 'event' in source:
+                # E-commerce event format
+                recent_logs.append({
+                    "_id": hit['_id'],
+                    "timestamp": source.get('@timestamp', ''),
+                    "level": "INFO",
+                    "service": source.get('event', 'event'),
+                    "message": f"{source.get('event', '')} - User: {source.get('user', '')} - Page: {source.get('page', '')}"
+                })
+            else:
+                # Generic format
+                recent_logs.append({
+                    "_id": hit['_id'],
+                    "timestamp": source.get('@timestamp', ''),
+                    "level": source.get('level', source.get('severity', 'INFO')),
+                    "service": source.get('service', source.get('source', 'unknown')),
+                    "message": source.get('message', source.get('msg', str(source)))
+                })
+
         
         # Get logs over time (last 7 days)
         time_agg_query = {

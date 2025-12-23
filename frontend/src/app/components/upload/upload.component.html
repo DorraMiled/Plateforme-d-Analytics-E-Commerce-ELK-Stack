@@ -1,18 +1,49 @@
 <div class="upload-container">
-  <!-- Header -->
+  <!-- Header with Stats -->
   <div class="page-header">
-    <h1>
-      <mat-icon>cloud_upload</mat-icon>
-      Upload de Logs
-    </h1>
+    <div class="header-content">
+      <h1>
+        <mat-icon>cloud_upload</mat-icon>
+        Upload de Logs
+      </h1>
+      <p class="subtitle">Importez vos fichiers CSV, JSON ou TXT pour analyse</p>
+    </div>
+  </div>
+
+  <!-- Quick Stats -->
+  <div class="stats-grid" *ngIf="recentUploads.length > 0">
+    <div class="stat-card">
+      <mat-icon class="stat-icon success">check_circle</mat-icon>
+      <div class="stat-content">
+        <span class="stat-value">{{ recentUploads.length }}</span>
+        <span class="stat-label">Fichiers uploadés</span>
+      </div>
+    </div>
+    <div class="stat-card">
+      <mat-icon class="stat-icon info">description</mat-icon>
+      <div class="stat-content">
+        <span class="stat-value">{{ getTotalDocuments() }}</span>
+        <span class="stat-label">Documents indexés</span>
+      </div>
+    </div>
+    <div class="stat-card">
+      <mat-icon class="stat-icon primary">storage</mat-icon>
+      <div class="stat-content">
+        <span class="stat-value">{{ getTotalSize() }}</span>
+        <span class="stat-label">Taille totale</span>
+      </div>
+    </div>
   </div>
 
   <div class="grid-container cols-2">
     <!-- Upload Zone -->
-    <mat-card>
+    <mat-card class="upload-card">
       <mat-card-header>
-        <mat-card-title>Importer des fichiers</mat-card-title>
-        <mat-card-subtitle>CSV, JSON ou TXT - Maximum 100MB par fichier</mat-card-subtitle>
+        <mat-icon class="card-icon">cloud_upload</mat-icon>
+        <div>
+          <mat-card-title>Importer des fichiers</mat-card-title>
+          <mat-card-subtitle>CSV, JSON ou TXT - Maximum 100MB</mat-card-subtitle>
+        </div>
       </mat-card-header>
       <mat-card-content>
         <!-- Drag & Drop Zone -->
@@ -21,12 +52,14 @@
           (dragover)="onDragOver($event)"
           (dragleave)="onDragLeave($event)"
           (drop)="onDrop($event)"
-          [class.disabled]="uploading">
+          [class.disabled]="uploading"
+          [class.has-file]="selectedFile">
           
-          <mat-icon class="upload-icon">cloud_upload</mat-icon>
-          
-          <h3>Glissez-déposez votre fichier ici</h3>
-          <p>ou</p>
+          <div class="drop-zone-content">
+            <mat-icon class="upload-icon" [class.pulse]="!selectedFile">cloud_upload</mat-icon>
+            
+            <h3>Glissez-déposez votre fichier ici</h3>
+            <p class="or-text">ou</p>
           
           <input
             type="file"
@@ -44,6 +77,7 @@
             <mat-icon>folder_open</mat-icon>
             Parcourir les fichiers
           </button>
+          </div>
         </div>
 
         <!-- Selected File Info -->
@@ -81,45 +115,59 @@
       </mat-card-content>
     </mat-card>
 
-    <!-- Instructions -->
-    <mat-card>
+    <!-- Instructions Card -->
+    <mat-card class="instructions-card">
       <mat-card-header>
-        <mat-card-title>
-          <mat-icon>info</mat-icon>
-          Instructions
-        </mat-card-title>
+        <mat-icon class="card-icon">info</mat-icon>
+        <div>
+          <mat-card-title>Guide d'utilisation</mat-card-title>
+          <mat-card-subtitle>Formats supportés et bonnes pratiques</mat-card-subtitle>
+        </div>
       </mat-card-header>
       <mat-card-content>
-        <div class="info-section">
-          <h3>✓ Formats acceptés</h3>
-          <ul>
-            <li><strong>CSV :</strong> Fichiers avec délimiteur virgule</li>
-            <li><strong>JSON :</strong> Objets ou tableaux JSON</li>
-            <li><strong>TXT :</strong> Fichiers texte avec logs ligne par ligne</li>
-          </ul>
+        <div class="instruction-item">
+          <div class="instruction-icon">
+            <mat-icon class="icon-csv">table_chart</mat-icon>
+          </div>
+          <div class="instruction-content">
+            <h4>CSV</h4>
+            <p>Fichiers avec délimiteur virgule. Colonnes: timestamp, level, service, message</p>
+          </div>
+        </div>
 
-          <h3>✓ Validation</h3>
-          <ul>
-            <li>Taille maximale : <strong>100 MB</strong> par fichier</li>
-            <li>Les fichiers sont automatiquement validés</li>
-            <li>Indexation immédiate dans Elasticsearch</li>
+        <div class="instruction-item">
+          <div class="instruction-icon">
+            <mat-icon class="icon-json">code</mat-icon>
+          </div>
+          <div class="instruction-content">
+            <h4>JSON</h4>
+            <p>Objets ou tableaux JSON. Structure: timestamp, level, service, message</p>
+          </div>
+        </div>
+
+        <div class="instruction-item">
+          <div class="instruction-icon">
+            <mat-icon class="icon-txt">description</mat-icon>
+          </div>
+          <div class="instruction-content">
+            <h4>TXT</h4>
+            <p>Logs texte ligne par ligne. Format flexible avec parsing automatique</p>
+          </div>
+        </div>
+
+        <mat-divider class="my-16"></mat-divider>
+
+        <div class="tips-section">
+          <h4 class="tips-title">
+            <mat-icon>tips_and_updates</mat-icon>
+            Conseils
+          </h4>
+          <ul class="tips-list">
+            <li>Taille maximale: 100 MB par fichier</li>
+            <li>Les données sont indexées automatiquement</li>
             <li>Métadonnées sauvegardées dans MongoDB</li>
+            <li>Les résultats apparaissent immédiatement</li>
           </ul>
-
-          <h3>✓ Structure recommandée CSV</h3>
-          <pre><code>timestamp,level,service,message
-2025-01-20 10:30:00,INFO,web-api,User login
-2025-01-20 10:31:15,ERROR,database,Connection failed</code></pre>
-
-          <h3>✓ Structure recommandée JSON</h3>
-          <pre><code>[
-  {{'{}'}}
-    "timestamp": "2025-01-20T10:30:00",
-    "level": "INFO",
-    "service": "web-api",
-    "message": "User login"
-  {{'}'}}
-]</code></pre>
         </div>
       </mat-card-content>
     </mat-card>

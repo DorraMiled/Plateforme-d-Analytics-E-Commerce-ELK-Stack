@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import {
   LogEntry,
@@ -74,7 +75,10 @@ export class ApiService {
    * Get list of uploaded files
    */
   getFiles(): Observable<FileInfo[]> {
-    return this.http.get<FileInfo[]>(`${this.baseUrl}/files`);
+    return this.http.get<{count: number, files: FileInfo[]}>(`${this.baseUrl}/files`)
+      .pipe(
+        map(response => response.files || [])
+      );
   }
 
   /**

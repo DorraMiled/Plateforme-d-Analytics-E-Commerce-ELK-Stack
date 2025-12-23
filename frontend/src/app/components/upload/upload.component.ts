@@ -6,6 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTableModule } from '@angular/material/table';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatDividerModule } from '@angular/material/divider';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { ApiService } from '../../services/api.service';
 import { FileInfo, UploadResponse } from '../../models/log.models';
@@ -21,6 +22,7 @@ import { FileInfo, UploadResponse } from '../../models/log.models';
     MatProgressBarModule,
     MatTableModule,
     MatChipsModule,
+    MatDividerModule,
     MatSnackBarModule
   ],
   templateUrl: './upload.component.html',
@@ -141,8 +143,7 @@ export class UploadComponent {
 
   loadRecentUploads() {
     this.apiService.getFiles().subscribe({
-      next: (response: any) => {
-        const files = response.files || [];
+      next: (files: FileInfo[]) => {
         this.recentUploads = Array.isArray(files) ? files.slice(0, 10) : [];
       },
       error: (err) => {
@@ -168,6 +169,16 @@ export class UploadComponent {
     this.selectedFile = null;
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     if (fileInput) fileInput.value = '';
+  }
+
+  getTotalDocuments(): string {
+    const total = this.recentUploads.reduce((sum, file) => sum + (file.documents_count || 0), 0);
+    return total.toLocaleString();
+  }
+
+  getTotalSize(): string {
+    const totalBytes = this.recentUploads.reduce((sum, file) => sum + file.size, 0);
+    return this.formatFileSize(totalBytes);
   }
 
   private showSuccess(message: string) {
