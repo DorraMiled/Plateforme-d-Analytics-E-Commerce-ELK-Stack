@@ -1,5 +1,4 @@
 from flask import Flask, jsonify, request, send_from_directory, make_response
-from flask_cors import CORS
 from pymongo import MongoClient
 import redis
 from elasticsearch import Elasticsearch
@@ -11,20 +10,24 @@ from datetime import datetime
 from werkzeug.utils import secure_filename
 import pandas as pd
 
+# Import du blueprint d'authentification
+from auth.routes import auth_bp
+from auth.models import create_user_indexes
+
+# Import du cache Redis
+from cache.redis_cache import cache_manager, cache_response, invalidate_pattern, get_cache_stats, invalidate_cache_type
+from cache.config import CacheType, CacheConfig
+
 app = Flask(__name__)
-CORS(app, resources={
-    r"/api/*": {
-        "origins": "*",
-        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization"]
-    }
-})
 
 # Configuration
 MONGODB_URI = os.getenv('MONGODB_URI', 'mongodb://admin:admin123@localhost:27017/ecommerce?authSource=admin')
 REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
 REDIS_PORT = int(os.getenv('REDIS_PORT', 6379))
 ELASTICSEARCH_HOST = os.getenv('ELASTICSEARCH_HOST', 'http://localhost:9200')
+
+# Configuration JWT
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your-super-secret-key-change-in-production-2024!')
 
 # Upload folder - use local path by default, Docker will override via env var
 default_upload_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
@@ -41,14 +44,25 @@ try:
     mongo_client = MongoClient(MONGODB_URI)
     db = mongo_client.ecommerce
     print("[OK] Connected to MongoDB")
+    
+    # Stocker la DB dans la config Flask pour les blueprints
+    app.config['DB'] = db
+    
+    # Créer les index pour la collection users
+    create_user_indexes(db)
 except Exception as e:
     print(f"[ERROR] MongoDB connection error: {e}")
     db = None
+    app.config['DB'] = None
 
 try:
     redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
     redis_client.ping()
     print("[OK] Connected to Redis")
+    
+    # Initialiser le cache manager avec le client Redis
+    cache_manager.set_client(redis_client)
+    print("[OK] Cache Manager initialized")
 except Exception as e:
     print(f"[ERROR] Redis connection error: {e}")
     redis_client = None
@@ -761,8 +775,9 @@ def get_stats():
 
 
 @app.route('/api/dashboard', methods=['GET'])
+@cache_response(CacheType.DASHBOARD, ttl=300)  # Cache 5 minutes
 def get_dashboard():
-    """Get dashboard statistics"""
+    """Get dashboard statistics - Cached for better performance"""
     if es_client is None:
         return jsonify({'error': 'Elasticsearch not connected'}), 500
     
@@ -979,6 +994,165 @@ def save_search():
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+# --- Enregistrement du blueprint d'authentification ---
+app.register_blueprint(auth_bp)
+
+print("[OK] Authentication blueprint registered at /api/auth")
+
+
+# --- Routes de gestion du cache ---
+@app.route('/api/cache/stats', methods=['GET'])
+def cache_stats():
+    """Retourne les statistiques d'utilisation du cache"""
+    stats = get_cache_stats()
+    return jsonify({
+        "status": "success",
+        "cache_stats": stats,
+        "timestamp": datetime.now().isoformat()
+    })
+
+
+@app.route('/api/cache/invalidate/<cache_type>', methods=['POST'])
+def invalidate_cache_endpoint(cache_type):
+    """
+    Invalide tout le cache d'un type spécifique
+    Types disponibles: dashboard, search, user, product, analytics
+    """
+    try:
+        # Mapper le string au CacheType
+        cache_type_map = {
+            'dashboard': CacheType.DASHBOARD,
+            'search': CacheType.SEARCH,
+            'user': CacheType.USER,
+            'product': CacheType.PRODUCT,
+            'analytics': CacheType.ANALYTICS
+        }
+        
+        if cache_type not in cache_type_map:
+            return jsonify({
+                "status": "error",
+                "message": f"Invalid cache type. Available: {list(cache_type_map.keys())}"
+            }), 400
+        
+        cache_type_enum = cache_type_map[cache_type]
+        deleted_count = invalidate_cache_type(cache_type_enum)
+        
+        return jsonify({
+            "status": "success",
+            "cache_type": cache_type,
+            "deleted_keys": deleted_count,
+            "message": f"Cache '{cache_type}' invalidated successfully",
+            "timestamp": datetime.now().isoformat()
+        })
+    
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+
+@app.route('/api/cache/invalidate-pattern', methods=['POST'])
+def invalidate_cache_pattern_endpoint():
+    """
+    Invalide le cache selon un pattern
+    Body: {"pattern": "cache:dashboard:*"}
+    """
+    try:
+        data = request.get_json()
+        pattern = data.get('pattern')
+        
+        if not pattern:
+            return jsonify({
+                "status": "error",
+                "message": "Pattern is required"
+            }), 400
+        
+        deleted_count = invalidate_pattern(pattern)
+        
+        return jsonify({
+            "status": "success",
+            "pattern": pattern,
+            "deleted_keys": deleted_count,
+            "message": f"Cache invalidated for pattern: {pattern}",
+            "timestamp": datetime.now().isoformat()
+        })
+    
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+
+@app.route('/api/cache/clear-all', methods=['POST'])
+def clear_all_cache():
+    """Invalide TOUT le cache - À utiliser avec précaution"""
+    try:
+        deleted_count = invalidate_pattern("cache:*")
+        
+        return jsonify({
+            "status": "success",
+            "deleted_keys": deleted_count,
+            "message": "All cache cleared",
+            "timestamp": datetime.now().isoformat()
+        })
+    
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+
+# --- Gestion CORS manuelle ---
+@app.after_request
+def add_cors_headers(response):
+    """Ajoute les headers CORS à toutes les réponses"""
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+    response.headers['Access-Control-Max-Age'] = '3600'
+    return response
+
+
+@app.before_request
+def handle_options():
+    """Gère les requêtes OPTIONS (preflight)"""
+    if request.method == 'OPTIONS':
+        response = make_response('', 200)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        response.headers['Access-Control-Max-Age'] = '3600'
+        return response
+
+
+# Route de test CORS
+@app.route('/api/test-cors', methods=['GET', 'POST', 'OPTIONS'])
+def test_cors():
+    """Route de test pour vérifier CORS"""
+    return jsonify({
+        'message': 'CORS is working!',
+        'method': request.method,
+        'origin': request.headers.get('Origin', 'No origin header')
+    })
+
+
+# Route de debug pour lister toutes les routes
+@app.route('/api/routes')
+def list_routes():
+    """Liste toutes les routes disponibles"""
+    routes = []
+    for rule in app.url_map.iter_rules():
+        routes.append({
+            'endpoint': rule.endpoint,
+            'methods': sorted(rule.methods - {'HEAD', 'OPTIONS'}),
+            'path': str(rule)
+        })
+    return jsonify({'routes': routes})
 
 
 if __name__ == '__main__':

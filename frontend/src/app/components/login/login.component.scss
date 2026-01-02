@@ -1,0 +1,338 @@
+.login-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.login-card-wrapper {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  max-width: 500px;
+  animation: fadeInUp 0.6s ease-out;
+}
+
+.login-card {
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  border-radius: 16px;
+  overflow: hidden;
+  background: white;
+}
+
+/* Header */
+mat-card-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 30px 24px;
+  margin: 0;
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+
+.app-icon {
+  font-size: 48px;
+  width: 48px;
+  height: 48px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+}
+
+mat-card-title {
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0;
+  color: white;
+}
+
+mat-card-subtitle {
+  font-size: 14px;
+  margin: 4px 0 0 0;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Content */
+mat-card-content {
+  padding: 0;
+}
+
+::ng-deep .mat-mdc-tab-group {
+  margin-top: 0;
+}
+
+::ng-deep .mat-mdc-tab-header {
+  border-bottom: 1px solid #e0e0e0;
+}
+
+::ng-deep .mat-mdc-tab-labels {
+  justify-content: space-around;
+}
+
+::ng-deep .mat-mdc-tab-label {
+  min-width: 0;
+  flex: 1;
+  font-weight: 500;
+}
+
+.tab-content {
+  padding: 32px 24px;
+}
+
+/* Form fields */
+.full-width {
+  width: 100%;
+}
+
+mat-form-field {
+  margin-bottom: 16px;
+  
+  ::ng-deep .mat-mdc-text-field-wrapper {
+    border-radius: 8px;
+  }
+}
+
+::ng-deep .mat-mdc-form-field-icon-prefix {
+  margin-right: 12px;
+  color: #667eea;
+}
+
+::ng-deep .mat-mdc-form-field-hint {
+  font-size: 12px;
+  color: #666;
+}
+
+/* Buttons */
+.login-button,
+.register-button {
+  height: 48px;
+  font-size: 16px;
+  font-weight: 500;
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 8px;
+  
+  mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
+  
+  mat-spinner {
+    margin-right: 8px;
+  }
+}
+
+.login-button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  
+  &:hover:not([disabled]) {
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+    transform: translateY(-2px);
+    transition: all 0.3s ease;
+  }
+}
+
+.register-button {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  box-shadow: 0 4px 12px rgba(245, 87, 108, 0.4);
+  
+  &:hover:not([disabled]) {
+    box-shadow: 0 6px 20px rgba(245, 87, 108, 0.6);
+    transform: translateY(-2px);
+    transition: all 0.3s ease;
+  }
+}
+
+button[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Extra info */
+.extra-info {
+  margin-top: 24px;
+  text-align: center;
+}
+
+.hint-text {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #666;
+  font-size: 14px;
+  margin: 0;
+  
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    color: #667eea;
+  }
+}
+
+/* Footer */
+mat-card-footer {
+  background: #f5f5f5;
+  padding: 20px 24px;
+  margin: 0;
+}
+
+.footer-content {
+  text-align: center;
+  
+  p {
+    margin: 0;
+    font-size: 13px;
+    color: #666;
+    
+    &:not(:last-child) {
+      margin-bottom: 8px;
+    }
+  }
+}
+
+.security-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: #4caf50;
+  font-weight: 500;
+  
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+}
+
+/* Background decoration */
+.background-decoration {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.circle {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  animation: float 20s infinite ease-in-out;
+}
+
+.circle-1 {
+  width: 300px;
+  height: 300px;
+  top: -150px;
+  left: -150px;
+  animation-delay: 0s;
+}
+
+.circle-2 {
+  width: 200px;
+  height: 200px;
+  bottom: -100px;
+  right: -100px;
+  animation-delay: 7s;
+}
+
+.circle-3 {
+  width: 150px;
+  height: 150px;
+  top: 50%;
+  right: -75px;
+  animation-delay: 14s;
+}
+
+/* Animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+  }
+  25% {
+    transform: translate(20px, -20px) scale(1.1);
+  }
+  50% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+  75% {
+    transform: translate(20px, 20px) scale(1.05);
+  }
+}
+
+/* Snackbar customization */
+::ng-deep .success-snackbar {
+  background: #4caf50 !important;
+  color: white !important;
+}
+
+::ng-deep .error-snackbar {
+  background: #f44336 !important;
+  color: white !important;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .login-container {
+    padding: 10px;
+  }
+  
+  .login-card-wrapper {
+    max-width: 100%;
+  }
+  
+  .tab-content {
+    padding: 24px 16px;
+  }
+  
+  mat-card-header {
+    padding: 24px 16px;
+  }
+  
+  .app-icon {
+    font-size: 40px;
+    width: 40px;
+    height: 40px;
+  }
+  
+  mat-card-title {
+    font-size: 20px;
+  }
+  
+  mat-card-subtitle {
+    font-size: 12px;
+  }
+}

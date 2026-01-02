@@ -1,14 +1,17 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { RouterModule, Router, NavigationEnd } from '@angular/router';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatListModule } from '@angular/material/list';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatBadgeModule } from '@angular/material/badge';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 import { Observable } from 'rxjs';
-import { map, shareReplay } from 'rxjs/operators';
+import { map, shareReplay, filter } from 'rxjs/operators';
+import { AuthService, User } from './services/auth.service';
 
 @Component({
   selector: 'app-root',
@@ -20,10 +23,18 @@ import { map, shareReplay } from 'rxjs/operators';
     MatButtonModule,
     MatIconModule,
     MatSidenavModule,
-    MatListModule
+    MatListModule,
+    MatMenuModule,
+    MatBadgeModule
   ],
   template: `
-    <mat-sidenav-container class="sidenav-container">
+    <!-- Page Login isolée (sans navigation) -->
+    <div *ngIf="isLoginPage" class="login-page-container">
+      <router-outlet></router-outlet>
+    </div>
+
+    <!-- Application principale avec navigation -->
+    <mat-sidenav-container class="sidenav-container" *ngIf="!isLoginPage">
       <mat-sidenav
         #drawer
         class="sidenav"
@@ -86,12 +97,55 @@ import { map, shareReplay } from 'rxjs/operators';
           <span class="toolbar-title">Log Management System</span>
           <span class="spacer"></span>
           
-          <button mat-icon-button aria-label="Notifications">
-            <mat-icon>notifications</mat-icon>
+          <!-- User menu (if authenticated) -->
+          <div *ngIf="currentUser$ | async as user" class="user-menu">
+            <button mat-button [matMenuTriggerFor]="userMenu" class="user-button">
+              <mat-icon>account_circle</mat-icon>
+              <span class="username">{{ user.username }}</span>
+              <span class="user-role" [class.admin]="user.role === 'ADMIN'" 
+                                      [class.analyst]="user.role === 'ANALYST'">
+                {{ user.role }}
+              </span>
+            </button>
+            
+            <mat-menu #userMenu="matMenu">
+              <div class="user-info">
+                <mat-icon>person</mat-icon>
+                <div>
+                  <div class="user-info-name">{{ user.username }}</div>
+                  <div class="user-info-email">{{ user.email }}</div>
+                </div>
+              </div>
+              
+              <mat-divider></mat-divider>
+              
+              <button mat-menu-item routerLink="/profile">
+                <mat-icon>account_box</mat-icon>
+                <span>Profile</span>
+              </button>
+              
+              <button mat-menu-item routerLink="/settings">
+                <mat-icon>settings</mat-icon>
+                <span>Settings</span>
+              </button>
+              
+              <mat-divider></mat-divider>
+              
+              <button mat-menu-item (click)="logout()" class="logout-button">
+                <mat-icon>logout</mat-icon>
+                <span>Logout</span>
+              </button>
+            </mat-menu>
+          </div>
+          
+          <!-- Login button (if not authenticated) -->
+          <button mat-button *ngIf="!(currentUser$ | async)" routerLink="/login" class="login-link">
+            <mat-icon>login</mat-icon>
+            <span>Login</span>
           </button>
           
-          <button mat-icon-button aria-label="Settings">
-            <mat-icon>settings</mat-icon>
+          <button mat-icon-button aria-label="Notifications">
+            <mat-icon>notifications</mat-icon>
           </button>
         </mat-toolbar>
         
@@ -131,6 +185,20 @@ import { map, shareReplay } from 'rxjs/operators';
     </mat-sidenav-container>
   `,
   styles: [`
+    /* Container pour la page login isolée */
+    .login-page-container {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 1000;
+    }
+
     .sidenav-container {
       height: 100%;
       background: linear-gradient(to bottom, #f8f9fa, #e9ecef);
@@ -330,6 +398,99 @@ import { map, shareReplay } from 'rxjs/operators';
       }
     }
     
+    /* User menu styles */
+    .user-menu {
+      margin-left: 16px;
+    }
+    
+    .user-button {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 12px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 24px;
+      transition: all 0.3s ease;
+      
+      &:hover {
+        background: rgba(255, 255, 255, 0.2);
+      }
+      
+      mat-icon {
+        font-size: 24px;
+        width: 24px;
+        height: 24px;
+      }
+      
+      .username {
+        font-weight: 500;
+        max-width: 120px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      
+      .user-role {
+        font-size: 11px;
+        padding: 2px 8px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.2);
+        font-weight: 600;
+        
+        &.admin {
+          background: #f44336;
+        }
+        
+        &.analyst {
+          background: #ff9800;
+        }
+      }
+    }
+    
+    .login-link {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: 16px;
+    }
+    
+    ::ng-deep .mat-mdc-menu-content {
+      padding: 0;
+    }
+    
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      
+      mat-icon {
+        font-size: 40px;
+        width: 40px;
+        height: 40px;
+      }
+      
+      .user-info-name {
+        font-weight: 600;
+        font-size: 16px;
+      }
+      
+      .user-info-email {
+        font-size: 12px;
+        opacity: 0.9;
+      }
+    }
+    
+    .logout-button {
+      color: #f44336;
+      
+      mat-icon {
+        color: #f44336;
+      }
+    }
+    
     @keyframes fadeInUp {
       from {
         opacity: 0;
@@ -351,12 +512,41 @@ import { map, shareReplay } from 'rxjs/operators';
     }
   `]
 })
-export class AppComponent {
+export class AppComponent implements OnInit {
   isHandset$: Observable<boolean> = this.breakpointObserver.observe(Breakpoints.Handset)
     .pipe(
       map(result => result.matches),
       shareReplay()
     );
-
-  constructor(private breakpointObserver: BreakpointObserver) {}
+  
+  currentUser$: Observable<User | null>;
+  isLoginPage = false;
+  
+  constructor(
+    private breakpointObserver: BreakpointObserver,
+    private authService: AuthService,
+    private router: Router
+  ) {
+    this.currentUser$ = this.authService.currentUser$;
+    
+    // Détecter les changements de route pour savoir si on est sur /login
+    this.router.events.pipe(
+      filter(event => event instanceof NavigationEnd)
+    ).subscribe((event: any) => {
+      this.isLoginPage = event.url === '/login' || event.url.startsWith('/login?');
+    });
+    
+    // Vérifier la route initiale
+    this.isLoginPage = this.router.url === '/login' || this.router.url.startsWith('/login?');
+  }
+  
+  ngOnInit(): void {
+    // L'utilisateur est déjà chargé depuis localStorage dans le constructeur du service
+    // L'interceptor gérera les erreurs d'authentification (401/403) lors des prochaines requêtes
+    // Pas besoin de vérifier le token ici pour éviter une déconnexion inutile au rafraîchissement
+  }
+  
+  logout(): void {
+    this.authService.logout();
+  }
 }

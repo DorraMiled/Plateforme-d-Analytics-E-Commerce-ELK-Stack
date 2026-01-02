@@ -6,6 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTableModule } from '@angular/material/table';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ApiService } from '../../services/api.service';
 import { DashboardStats, LogEntry } from '../../models/log.models';
 import { NgChartsModule } from 'ng2-charts';
@@ -37,6 +38,11 @@ export class DashboardComponent implements OnInit {
   error: string | null = null;
 
   displayedColumns: string[] = ['timestamp', 'level', 'service', 'message'];
+
+  // Kibana Dashboard Integration
+  kibanaDashboardUrl: SafeResourceUrl;
+  kibanaBaseUrl = 'http://localhost:5601';
+  kibanaDashboardId = '28c78c80-e733-11f0-981d-9db1c3ddaac0';
 
   // Chart.js Configuration
   public barChartType: ChartType = 'bar';
@@ -107,7 +113,14 @@ export class DashboardComponent implements OnInit {
     }
   };
 
-  constructor(private apiService: ApiService) {}
+  constructor(
+    private apiService: ApiService,
+    private sanitizer: DomSanitizer
+  ) {
+    // Créer l'URL sécurisée pour l'iframe Kibana
+    const url = `${this.kibanaBaseUrl}/app/dashboards#/view/${this.kibanaDashboardId}?embed=true&_g=(refreshInterval:(pause:!t,value:60000),time:(from:now-30d%2Fd,to:now))&_a=()`;
+    this.kibanaDashboardUrl = this.sanitizer.bypassSecurityTrustResourceUrl(url);
+  }
 
   ngOnInit() {
     this.loadDashboard();
