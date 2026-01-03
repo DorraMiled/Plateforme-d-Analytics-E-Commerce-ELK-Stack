@@ -94,7 +94,7 @@ import { AuthService, User } from './services/auth.service';
             <mat-icon>menu</mat-icon>
           </button>
           
-          <span class="toolbar-title">Log Management System</span>
+          <span class="toolbar-title">Log Management System ECommerce</span>
           <span class="spacer"></span>
           
           <!-- User menu (if authenticated) -->
@@ -156,7 +156,7 @@ import { AuthService, User } from './services/auth.service';
         <footer class="footer">
           <div class="footer-content">
             <div class="footer-section">
-              <h3>Log Management System</h3>
+              <h3>Log Management System </h3>
               <p>Système de gestion et d'analyse de logs avec ELK Stack</p>
             </div>
             

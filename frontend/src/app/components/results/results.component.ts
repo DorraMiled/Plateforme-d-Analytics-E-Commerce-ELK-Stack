@@ -10,8 +10,10 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { ApiService } from '../../services/api.service';
 import { LogEntry, SearchFilters } from '../../models/log.models';
+import { LogDetailsDialogComponent } from './log-details-dialog.component';
 
 @Component({
   selector: 'app-results',
@@ -26,7 +28,8 @@ import { LogEntry, SearchFilters } from '../../models/log.models';
     MatIconModule,
     MatProgressSpinnerModule,
     MatDialogModule,
-    MatSnackBarModule
+    MatSnackBarModule,
+    MatTooltipModule
   ],
   templateUrl: './results.component.html',
   styleUrls: ['./results.component.scss']
@@ -99,21 +102,13 @@ export class ResultsComponent implements OnInit {
   }
 
   viewDetails(log: LogEntry) {
-    // Open dialog with log details
-    const message = `
-      ID: ${log._id}
-      Timestamp: ${log.timestamp}
-      Level: ${log.level}
-      Service: ${log.service}
-      Message: ${log.message}
-      
-      ${JSON.stringify(log, null, 2)}
-    `;
-    
-    this.snackBar.open(message, 'Fermer', {
-      duration: 10000,
-      horizontalPosition: 'end',
-      verticalPosition: 'top'
+    // Open dialog with structured log details
+    this.dialog.open(LogDetailsDialogComponent, {
+      width: '800px',
+      maxWidth: '90vw',
+      maxHeight: '90vh',
+      data: log,
+      panelClass: 'log-details-dialog'
     });
   }
 

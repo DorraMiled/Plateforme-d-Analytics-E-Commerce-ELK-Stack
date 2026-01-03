@@ -361,6 +361,20 @@ def search():
         hits = []
         for hit in result['hits']['hits']:
             source = hit['_source']
+            
+            # Helper function to get service from multiple possible fields
+            def get_service_name(src):
+                # Try different field name variations
+                service_fields = ['Service', 'service', 'source', 'Source', 'event', 'Event', 
+                                'application', 'Application', 'app', 'App', 'component', 'Component']
+                for field in service_fields:
+                    if field in src and src[field]:
+                        return src[field]
+                # If no service field found, try to infer from other fields
+                if 'product_name' in src or 'customer_name' in src:
+                    return 'E-commerce'
+                return 'Application'
+            
             # Handle different document types
             if 'Level' in source:
                 # Standard log format
@@ -368,7 +382,7 @@ def search():
                     "_id": hit['_id'],
                     "timestamp": source.get('@timestamp', ''),
                     "level": source.get('Level', ''),
-                    "service": source.get('Service', ''),
+                    "service": get_service_name(source),
                     "message": source.get('Message', ''),
                     "user": source.get('User', '')
                 })
@@ -378,7 +392,7 @@ def search():
                     "_id": hit['_id'],
                     "timestamp": source.get('@timestamp', ''),
                     "level": "INFO",
-                    "service": source.get('event', 'event'),
+                    "service": source.get('event', 'E-commerce'),
                     "message": f"{source.get('event', '')} - User: {source.get('user', '')} - Page: {source.get('page', '')}",
                     "user": source.get('user', '')
                 })
@@ -388,7 +402,7 @@ def search():
                     "_id": hit['_id'],
                     "timestamp": source.get('@timestamp', ''),
                     "level": source.get('level', source.get('severity', 'INFO')),
-                    "service": source.get('service', source.get('source', 'unknown')),
+                    "service": get_service_name(source),
                     "message": source.get('message', source.get('msg', str(source))),
                     "user": source.get('user', source.get('User', ''))
                 })
@@ -448,6 +462,17 @@ def export_to_csv():
         # Write header
         csv_writer.writerow(['Timestamp', 'Level', 'Service', 'Message', 'User'])
         
+        # Helper function to get service from multiple possible fields
+        def get_service_name(src):
+            service_fields = ['Service', 'service', 'source', 'Source', 'event', 'Event', 
+                            'application', 'Application', 'app', 'App', 'component', 'Component']
+            for field in service_fields:
+                if field in src and src[field]:
+                    return src[field]
+            if 'product_name' in src or 'customer_name' in src:
+                return 'E-commerce'
+            return 'Application'
+        
         # Write data rows
         for hit in result['hits']['hits']:
             source = hit['_source']
@@ -457,7 +482,7 @@ def export_to_csv():
                 row = [
                     source.get('@timestamp', ''),
                     source.get('Level', ''),
-                    source.get('Service', ''),
+                    get_service_name(source),
                     source.get('Message', ''),
                     source.get('User', '')
                 ]
@@ -465,7 +490,7 @@ def export_to_csv():
                 row = [
                     source.get('@timestamp', ''),
                     'INFO',
-                    source.get('event', 'event'),
+                    source.get('event', 'E-commerce'),
                     f"{source.get('event', '')} - User: {source.get('user', '')} - Page: {source.get('page', '')}",
                     source.get('user', '')
                 ]
@@ -473,7 +498,7 @@ def export_to_csv():
                 row = [
                     source.get('@timestamp', ''),
                     source.get('level', source.get('severity', 'INFO')),
-                    source.get('service', source.get('source', 'unknown')),
+                    get_service_name(source),
                     source.get('message', source.get('msg', str(source))),
                     source.get('user', source.get('User', ''))
                 ]
@@ -834,6 +859,18 @@ def get_dashboard():
         }
         recent_result = es_client.search(index='ecommerce-logs-*', body=recent_query)
         recent_logs = []
+        
+        # Helper function to get service from multiple possible fields
+        def get_service_name(src):
+            service_fields = ['Service', 'service', 'source', 'Source', 'event', 'Event', 
+                            'application', 'Application', 'app', 'App', 'component', 'Component']
+            for field in service_fields:
+                if field in src and src[field]:
+                    return src[field]
+            if 'product_name' in src or 'customer_name' in src:
+                return 'E-commerce'
+            return 'Application'
+        
         for hit in recent_result['hits']['hits']:
             source = hit['_source']
             # Handle different document types
@@ -843,7 +880,7 @@ def get_dashboard():
                     "_id": hit['_id'],
                     "timestamp": source.get('@timestamp', ''),
                     "level": source.get('Level', ''),
-                    "service": source.get('Service', ''),
+                    "service": get_service_name(source),
                     "message": source.get('Message', '')
                 })
             elif 'event' in source:
@@ -852,7 +889,7 @@ def get_dashboard():
                     "_id": hit['_id'],
                     "timestamp": source.get('@timestamp', ''),
                     "level": "INFO",
-                    "service": source.get('event', 'event'),
+                    "service": source.get('event', 'E-commerce'),
                     "message": f"{source.get('event', '')} - User: {source.get('user', '')} - Page: {source.get('page', '')}"
                 })
             else:
@@ -861,7 +898,7 @@ def get_dashboard():
                     "_id": hit['_id'],
                     "timestamp": source.get('@timestamp', ''),
                     "level": source.get('level', source.get('severity', 'INFO')),
-                    "service": source.get('service', source.get('source', 'unknown')),
+                    "service": get_service_name(source),
                     "message": source.get('message', source.get('msg', str(source)))
                 })
 
