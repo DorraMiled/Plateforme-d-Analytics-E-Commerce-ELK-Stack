@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, send_from_directory, make_response
+from flask import Flask, jsonify, request, send_from_directory, make_response, g
 from pymongo import MongoClient
 import redis
 from elasticsearch import Elasticsearch
@@ -13,6 +13,7 @@ import pandas as pd
 # Import du blueprint d'authentification
 from auth.routes import auth_bp
 from auth.models import create_user_indexes
+from auth.decorators import token_required, role_required
 
 # Import du cache Redis
 from cache.redis_cache import cache_manager, cache_response, invalidate_pattern, get_cache_stats, invalidate_cache_type
@@ -260,7 +261,7 @@ def upload_file():
                     })
         
         # Store file metadata in Redis
-        if redis_client:
+        if redis_client is not None:
             file_info = {
                 'filename': unique_filename,
                 'original_name': filename,
@@ -666,8 +667,10 @@ def get_results():
 
 
 @app.route('/api/files', methods=['GET'])
+@token_required
+@role_required('ADMIN', 'ANALYST')
 def list_files():
-    """List all uploaded files"""
+    """List all uploaded files (Admin/Analyst only)"""
     try:
         files = []
         upload_folder = app.config['UPLOAD_FOLDER']
@@ -684,7 +687,7 @@ def list_files():
                 
                 # Try to get metadata from Redis
                 file_info = None
-                if redis_client:
+                if redis_client is not None:
                     cached_info = redis_client.get(f"file:{filename}")
                     if cached_info:
                         file_info = json.loads(cached_info)
@@ -714,6 +717,70 @@ def list_files():
     
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/files/<filename>', methods=['DELETE'])
+@token_required
+@role_required('ADMIN', 'ANALYST')
+def delete_file(filename):
+    """Delete an uploaded file (Admin/Analyst only)"""
+    try:
+        upload_folder = app.config['UPLOAD_FOLDER']
+        filepath = os.path.join(upload_folder, filename)
+        
+        # Get username safely
+        username = g.current_user.get('username', 'Unknown') if hasattr(g, 'current_user') and g.current_user else 'Unknown'
+        
+        # Check if file exists
+        if not os.path.exists(filepath):
+            return jsonify({'error': 'File not found'}), 404
+        
+        # Delete the physical file
+        os.remove(filepath)
+        print(f"[INFO] File deleted: {filename} by user {username}")
+        
+        # Remove from Redis cache
+        if redis_client is not None:
+            try:
+                redis_client.delete(f"file:{filename}")
+                print(f"[INFO] Redis cache cleared for: {filename}")
+            except Exception as e:
+                print(f"[WARNING] Redis delete failed: {str(e)}")
+        
+        # Remove metadata from MongoDB
+        if db is not None:
+            try:
+                result = db.uploads.delete_one({'filename': filename})
+                print(f"[INFO] MongoDB metadata deleted for: {filename} (deleted: {result.deleted_count})")
+            except Exception as e:
+                print(f"[WARNING] MongoDB delete failed: {str(e)}")
+        
+        # Invalidate file list cache
+        if redis_client is not None:
+            try:
+                pattern = "cache:files:*"
+                keys = redis_client.keys(pattern)
+                if keys:
+                    redis_client.delete(*keys)
+                    print(f"[INFO] Invalidated {len(keys)} file cache entries")
+            except Exception as e:
+                print(f"[WARNING] Cache invalidation failed: {str(e)}")
+        
+        return jsonify({
+            'message': 'File deleted successfully',
+            'filename': filename,
+            'deleted_by': username,
+            'deleted_at': datetime.now().isoformat()
+        }), 200
+    
+    except PermissionError as e:
+        print(f"[ERROR] Permission denied: {str(e)}")
+        return jsonify({'error': 'Permission denied to delete file'}), 403
+    except Exception as e:
+        print(f"[ERROR] Delete file failed: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'Failed to delete file: {str(e)}'}), 500
 
 
 @app.route('/api/stats', methods=['GET'])
@@ -765,7 +832,7 @@ def get_stats():
                 stats['data']['mongodb'] = {'error': str(e)}
         
         # Redis stats
-        if redis_client:
+        if redis_client is not None:
             try:
                 info = redis_client.info()
                 stats['data']['redis'] = {

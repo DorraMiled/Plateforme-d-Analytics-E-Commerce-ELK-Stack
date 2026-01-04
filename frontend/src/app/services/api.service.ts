@@ -82,6 +82,13 @@ export class ApiService {
   }
 
   /**
+   * Delete an uploaded file (Admin/Analyst only)
+   */
+  deleteFile(filename: string): Observable<any> {
+    return this.http.delete(`${this.baseUrl}/files/${encodeURIComponent(filename)}`);
+  }
+
+  /**
    * Get log details by ID
    */
   getLogDetails(id: string): Observable<LogEntry> {

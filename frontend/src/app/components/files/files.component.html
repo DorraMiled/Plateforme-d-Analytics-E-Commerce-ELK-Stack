@@ -65,8 +65,21 @@
               <td mat-cell *matCellDef="let file" class="file-date">{{ file.upload_time | date:'dd/MM/yyyy HH:mm' }}</td>
             </ng-container>
 
-            <tr mat-header-row *matHeaderRowDef="['filename', 'size', 'type', 'upload_time']"></tr>
-            <tr mat-row *matRowDef="let row; columns: ['filename', 'size', 'type', 'upload_time'];"></tr>
+            <ng-container matColumnDef="actions">
+              <th mat-header-cell *matHeaderCellDef>Actions</th>
+              <td mat-cell *matCellDef="let file">
+                <button mat-icon-button 
+                        color="warn" 
+                        *ngIf="canDelete()"
+                        (click)="deleteFile(file)"
+                        matTooltip="Supprimer le fichier">
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="['filename', 'size', 'type', 'upload_time', 'actions']"></tr>
+            <tr mat-row *matRowDef="let row; columns: ['filename', 'size', 'type', 'upload_time', 'actions'];"></tr>
           </table>
         </div>
       </mat-card-content>
